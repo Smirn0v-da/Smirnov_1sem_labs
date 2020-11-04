@@ -24,10 +24,12 @@ Colors = [Blue, Green, Red, Brown]
 class ball():
     def __init__(self, x=40, y=450):
         """ Конструктор класса ball
-
         Args:
         x - начальное положение мяча по горизонтали
         y - начальное положение мяча по вертикали
+        r - радиус мяча
+        vx и vy - начальные скорости
+        color - цвет мяча 
         """
         self.x = x
         self.y = y
@@ -41,7 +43,7 @@ class ball():
         """Переместить мяч по прошествии единицы времени.
         Метод описывает перемещение мяча за один кадр перерисовки. То есть, обновляет значения
         self.x и self.y с учетом скоростей self.vx и self.vy, силы гравитации, действующей на мяч,
-        и стен по краям окна (размер окна 800х600).
+        и стен (размер окна 800х600).
         """
         self.x += self.vx
         if self.y < 500 or abs(self.vy) >= 10:
@@ -77,6 +79,12 @@ class ball():
 
 class gun():
     def __init__(self):
+        """ Конструктор класса gun
+        Args:
+        (x1, y1) и (x2, y2) - точки начала и конца пушки
+        f2_power - переменная, отвечающая за силу выстрела 
+        f2_on - переменная, отвечающая за зарядку пушки ( заряжается при значении 1, не заряжается при 0)
+        """
         self.f2_power = 10
         self.f2_on = 0
         self.an = 1
@@ -84,6 +92,9 @@ class gun():
         self.y1 = self.y2 = 450
 
     def fire2_start(self, event):
+        """
+        Функция вызывает начало зарядки пушки
+        """
         self.f2_on = 1
 
     def fire2_end(self, event):
@@ -91,8 +102,7 @@ class gun():
         Происходит при отпускании кнопки мыши.
         Начальные значения компонент скорости мяча vx и vy зависят от положения мыши.
         """
-        global balls, bullet
-        bullet += 1
+        global balls
         new_ball = ball()
         new_ball.r += 5
         self.an = math.atan((event.pos[1]-new_ball.y) / (event.pos[0]-new_ball.x))
@@ -116,6 +126,7 @@ class gun():
             line(screen, Black, (self.x1, self.y1), (int(self.x2), int(self.y2)), 7)
 
     def power_up(self):
+        """Увеличение силы выстрела"""
         if self.f2_on:
             if self.f2_power < 100:
                 self.f2_power += 1
@@ -127,32 +138,49 @@ class gun():
 class target():
     def __init__(self):
         self.points = 0
+        self.vy = rnd(-200, 200)
         
     def new_target(self):
         """ Инициализация новой цели. """
-        x = self.x = rnd(600, 780)
-        y = self.y = rnd(200, 450)
+        x = self.x = rnd(400, 780)
+        y = self.y = rnd(100, 450)
         r = self.r = rnd(20, 50)
         color = self.color = Red
         circle(screen, color, (x, y), r)
+        circle(screen, Black, (x, y), r, 1)
 
     def main_target(self):
+        """Рисование уже существующей цели"""
         x = self.x 
         y = self.y 
         r = self.r
         color = self.color = Red
-        circle(screen, color, (x, y), r)
+        circle(screen, color, (x, int(y)), r)
+        circle(screen, Black, (x, int(y)), r, 1)
 
     def hit(self, points=1):
         """Попадание шарика в цель."""
         self.points += points
         self.new_target()
 
-t1 = target()
+    def move(self):
+        """Движение мишени"""
+        self.y += self.vy / FPS
+        if self.y - self.r <= 0:
+            self.y = self.r
+            self.vy = -self.vy
+        if self.y + self.r >= 500:
+            self.y = 500 - self.r
+            self.vy = -self.vy
+
+k = 3  #количество мишеней
 g1 = gun()
-bullet = 0
+points = 0
 balls = []
-t1.new_target()
+targets = []
+for i in range(k):
+    targets += [target()]
+    targets[i].new_target()
 
 pygame.display.update()
 clock = pygame.time.Clock()
@@ -160,12 +188,15 @@ finished = False
 
 while not finished:
     clock.tick(FPS)
-    t1.main_target()
+    for t in targets:
+        t.main_target()
     g1.power_up()
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             finished = True
-            print('Вы набрали', t1.points, 'очков')
+            for t in targets:
+                points += t.points
+            print('Вы набрали', points, 'очков')
         elif event.type == pygame.MOUSEBUTTONDOWN:
             g1.fire2_start(event)
         elif event.type == pygame.MOUSEBUTTONUP:
@@ -176,8 +207,12 @@ while not finished:
     if balls:
         for b in balls:
             b.move()
-            if b.hittest(t1):
-                t1.hit()
+            for t in targets:
+                if b.hittest(t):
+                    t.hit()
+    for t in targets:
+        t.move()
+        
     pygame.display.update()
     screen.fill(White)
 
